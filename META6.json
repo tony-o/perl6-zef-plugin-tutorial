@@ -1,0 +1,7 @@
+{
+  "perl": "6.d+",
+  "name": "Zef::Plugin::PluginManager",
+  "auth": "github:tonyo",
+  "description": "a zef plugin that supplies a cli to managing zef's config",
+  "provides": { }
+}

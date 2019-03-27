@@ -1,0 +1,108 @@
+use Zef;
+
+sub pad (Int $w, Str $val) {
+  sprintf(" %-{$w - 1}s", $val);
+}
+
+multi MAIN('config.test', 'ls') {
+  my $idx = 0;
+  my @widths  = 
+    max(7, $*zef.config.hash<Test>.elems.Str.chars), #indexes
+    24,
+    20,
+    28,
+  ;
+  my @headers = 'index', 'module', 'short-name', 'comment';
+
+  for |$*zef.config.hash<Test> -> $info {
+    @widths[1] = max(@widths[1], ($info<module>//'').chars + 2); 
+    @widths[2] = max(@widths[2], ($info<short-name>//'').chars + 2); 
+    @widths[3] = max(@widths[3], ($info<comment>//'').chars + 2); 
+  }
+
+  say '-' x 2 + ([+] @widths);
+  say (0..^@headers.elems).map({ pad(@widths[$_], @headers[$_]) }).join('|');
+  say '-' x 2 + ([+] @widths);
+
+  for |$*zef.config.hash<Test> -> $info {
+    say (
+      pad(@widths[0], $idx++.Str),
+      |(1..^@headers.elems).map({ pad(@widths[$_], $info{@headers[$_]}//'') })
+    ).join('|');
+  }
+
+  say '-' x 2 + ([+] @widths);
+}
+
+multi MAIN('config.test', 'remove', Int $index) {
+  my $info = $*zef.config.hash<Test>[$index];
+  if !$info {
+    say "Index $index not found in zef testers config, use ls for options";
+    exit 1;
+  }
+  
+  print "This will remove {$info<module>}, would you like to continue? ";
+  my $response;
+  while ($response//'') ne 'y'|'n'|'ye'|'yes'|'no' {
+    $response = lc $*IN.getc;
+  }
+  if $response !~~ /^ 'y' / {
+    say 'Not continuing';
+    exit 0;
+  }
+
+  $*zef.config.hash<Test> = (
+    |$*zef.config.hash<Test>[0..^$index],
+    |$*zef.config.hash<Test>[($index+1)..*],
+  );
+  my $json = to-json($*zef.config.hash);
+  from-json($json); # do NOT write a config we cannot read
+  $*zef.config.IO.spurt: $json;
+  say 'Success!';
+}
+
+sub add-module ($index, %module) {
+  try {
+    CATCH {
+      default {
+        say "Error loading %module<module>:\n" ~ $_;
+        .rethrow;
+        exit 1;
+      }
+    }
+    my $pkg = %module<module>;
+    require ::($pkg);
+    die "Module $pkg is not a Tester (role provided by Zef, `does Tester`)"
+      unless ::($pkg) ~~ Tester;
+    
+    $*zef.config.hash<Test> = 
+      |$*zef.config.hash<Test>[0..^$index],
+      %module,
+      |$*zef.config.hash<Test>[$index..*],
+    ;
+    
+    my $json = to-json($*zef.config.hash);
+    from-json($json); # do NOT write a config we cannot read
+    $*zef.config.IO.spurt: $json;
+    say 'Success!';
+  };
+  
+}
+
+multi MAIN('config.test', 'prepend', Str:D $module, Str :$short-name?, Str :$comment?) {
+  add-module(0, {
+    :short-name($short-name // lc $module),
+    :comment($comment // 'no comment'),
+    :$module,
+  });
+}
+
+multi MAIN('config.test', 'push', Str:D $module, Str :$short-name?, Str :$comment?) {
+  add-module($*zef.config.hash<Test>.elems, {
+    :short-name($short-name // lc $module),
+    :comment($comment // 'no comment'),
+    :$module,
+  });
+}
+
+# vi:syntax=perl6

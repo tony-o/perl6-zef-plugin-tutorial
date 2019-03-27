@@ -1,0 +1,24 @@
+use Data::Dump;
+
+multi MAIN('config') {
+  note qq:to/END_USAGE/
+    zef config - a plugin for zef config management
+
+    zef config.test      
+      
+      ls
+        List all of the plugins zef has available for testing
+
+      push --module (--comment?) (--short-name?) 
+        Appends the specified module to the test plugins
+
+      remove index(Int)
+        Removes the module from the config with index of Int
+
+      prepend --module (--comment?) (--short-name?) 
+        Prepends the specified module to the test plugins
+
+  END_USAGE
+}
+
+# vi:syntax=perl6
